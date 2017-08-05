@@ -7,11 +7,12 @@ import 'rxjs/add/observable/timer';
 import 'rxjs/add/operator/do';
 import 'rxjs/add/operator/retryWhen';
 import 'rxjs/add/operator/scan';
+import 'rxjs/add/operator/skipWhile';
 import 'rxjs/add/operator/startWith';
 import 'rxjs/add/operator/switchMap';
 export interface IOptions {
     /**
-     * Period of the interval to run the source$
+     * Period of the interval to run the source$, in ms.
      */
     interval: number;
     /**

@@ -52,7 +52,7 @@ describe('Basic behaviour', function() {
     scheduler.flush();
   });
 
-  test('It should not poll if the tab is inactive', () => {
+  test('It should NOT poll if the tab is inactive', () => {
     setPageActive(false);
 
     const source$ = Rx.Observable.of('Hello');
@@ -76,6 +76,27 @@ describe('Basic behaviour', function() {
     const source$ = Rx.Observable.of(1);
     const polling$ = polling(source$, { interval: 20 }, scheduler).take(1);
     const expected = '----(1|)';
+
+    scheduler.expectObservable(polling$).toBe(expected, { 1: 1 });
+    scheduler.flush();
+  });
+
+  test('It should NOT restart polling if the tab changes state multiple times within the interval', () => {
+    setPageActive(true);
+    document.addEventListener = function(eventType, listener) {
+      let isActive = true;
+
+      // At frame 40 simulate 'visibilitychange' Event
+      Rx.Observable.interval(10, scheduler).map(() => 'event').take(2).subscribe(() => {
+        setPageActive(!isActive);
+        isActive = !isActive;
+        listener();
+      });
+    };
+
+    const source$ = Rx.Observable.of(1);
+    const polling$ = polling(source$, { interval: 40 }, scheduler).take(2);
+    const expected = '1-----(1|)';
 
     scheduler.expectObservable(polling$).toBe(expected, { 1: 1 });
     scheduler.flush();

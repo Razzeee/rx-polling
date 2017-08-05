@@ -10,12 +10,13 @@ import 'rxjs/add/observable/timer';
 import 'rxjs/add/operator/do';
 import 'rxjs/add/operator/retryWhen';
 import 'rxjs/add/operator/scan';
+import 'rxjs/add/operator/skipWhile';
 import 'rxjs/add/operator/startWith';
 import 'rxjs/add/operator/switchMap';
 
 export interface IOptions {
   /**
-   * Period of the interval to run the source$
+   * Period of the interval to run the source$, in ms.
    */
   interval: number;
 
@@ -77,19 +78,31 @@ export default function polling<T>(
 
   /**
    * Currently any new error, after recover, continues the series of  increasing
-   * delays, like 2 consequent errors would do. This is a bug of RxJS. To workaround
-   * the issue we use the difference with the counter value at the last recover.
+   * delays, like 2 consequent errors would do instead of resetting the count.
+   * This is a bug of RxJS. To workaround the issue we use the difference with
+   * the counter value at the last recover.
    * @see https://github.com/ReactiveX/rxjs/issues/1413
    */
   let allErrorsCount = 0;
   let lastRecoverCount = 0;
+  let lastEmitTimestamp = 0;
 
   return Observable.fromEvent(document, 'visibilitychange')
     .startWith(null)
     .switchMap(() => {
       if (isPageActive()) {
+        console.log(isPageActive());
         return Observable.interval(options.interval, scheduler)
-          .startWith(null) // Immediately run the first call
+          .startWith(-2) // Immediately run the first call
+          .skipWhile(interval => {
+            const elapsedTime = getTime(scheduler) - lastEmitTimestamp;
+            const notFirstEmit = elapsedTime !== 0;
+            const visibilityChanged = interval === -2;
+
+            console.log({ interval, visibilityChanged, notFirstEmit, elapsedTime });
+
+            return visibilityChanged && notFirstEmit && elapsedTime < options.interval;
+          })
           .switchMap(() => request$)
           .retryWhen(errors$ => {
             return errors$
@@ -114,6 +127,8 @@ export default function polling<T>(
     .do(() => {
       // Update the counter after every successful polling
       lastRecoverCount = allErrorsCount;
+      // Update the timestamp after every successful polling
+      lastEmitTimestamp = getTime(scheduler);
     });
 }
 
@@ -139,4 +154,8 @@ function getStrategyDelay(consecutiveErrorsCount: number, options: IOptions): nu
       // Return a value anyway to avoid throwing
       return options.constantTime || options.interval;
   }
+}
+
+function getTime(scheduler: Scheduler): number {
+  return scheduler ? scheduler.now() : Date.now();
 }

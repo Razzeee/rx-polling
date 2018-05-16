@@ -1,17 +1,5 @@
-import { Observable } from 'rxjs/Observable';
-import { Observer } from 'rxjs/Observer';
-import { Scheduler } from 'rxjs/Scheduler';
-
-import 'rxjs/add/observable/empty';
-import 'rxjs/add/observable/fromEvent';
-import 'rxjs/add/observable/interval';
-import 'rxjs/add/observable/timer';
-
-import 'rxjs/add/operator/do';
-import 'rxjs/add/operator/retryWhen';
-import 'rxjs/add/operator/scan';
-import 'rxjs/add/operator/startWith';
-import 'rxjs/add/operator/switchMap';
+import { Observable, Scheduler, empty, fromEvent, interval, timer } from 'rxjs';
+import { retryWhen, scan, startWith, switchMap, tap } from 'rxjs/operators';
 
 export interface IOptions {
   /**
@@ -84,39 +72,45 @@ export default function polling<T>(
   let allErrorsCount = 0;
   let lastRecoverCount = 0;
 
-  return Observable.fromEvent(document, 'visibilitychange')
-    .startWith(null)
-    .switchMap(() => {
-      if (isPageActive()) {
-        return Observable.interval(options.interval, scheduler)
-          .startWith(null) // Immediately run the first call
-          .switchMap(() => request$)
-          .retryWhen(errors$ => {
-            return errors$
-              .scan(({ errorCount, error }, err) => ({ errorCount: errorCount + 1, error: err }), {
-                errorCount: 0,
-                error: null,
+  return fromEvent(document, 'visibilitychange')
+    .pipe(
+      startWith(null),
+      switchMap(() => {
+        if (isPageActive()) {
+          return interval(options.interval, scheduler)
+            .pipe(
+              startWith(null), // Immediately run the first call
+              switchMap(() => request$),
+              retryWhen(errors$ => {
+                return errors$
+                  .pipe(
+                    scan(({ errorCount, error }, err) => ({ errorCount: errorCount + 1, error: err }), {
+                      errorCount: 0,
+                      error: null,
+                    }),
+                    switchMap(({ errorCount, error }) => {
+                      allErrorsCount = errorCount;
+                      const consecutiveErrorsCount = allErrorsCount - lastRecoverCount;
+
+                      // If already tempted too many times don't retry
+                      if (consecutiveErrorsCount > options.attempts) throw error;
+
+                      const delay = getStrategyDelay(consecutiveErrorsCount, options);
+
+                      return timer(delay, null, scheduler);
+                    })
+                  );
               })
-              .switchMap(({ errorCount, error }) => {
-                allErrorsCount = errorCount;
-                const consecutiveErrorsCount = allErrorsCount - lastRecoverCount;
+            );
+        }
 
-                // If already tempted too many times don't retry
-                if (consecutiveErrorsCount > options.attempts) throw error;
-
-                const delay = getStrategyDelay(consecutiveErrorsCount, options);
-
-                return Observable.timer(delay, null, scheduler);
-              });
-          });
-      }
-
-      return Observable.empty();
-    })
-    .do(() => {
-      // Update the counter after every successful polling
-      lastRecoverCount = allErrorsCount;
-    });
+        return empty();
+      }),
+      tap(() => {
+        // Update the counter after every successful polling
+        lastRecoverCount = allErrorsCount;
+      })
+    );
 }
 
 function isPageActive(): boolean {

@@ -1,9 +1,8 @@
-import repeat from 'lodash/repeat';
-import { TestMessage } from 'rxjs/testing/TestMessage';
-import { Notification } from 'rxjs/Notification';
-import { Observable } from 'rxjs/Observable';
-import { Observer } from 'rxjs/Observer';
 import chalk from 'chalk';
+import repeat from 'lodash/repeat';
+import { Observable, Observer } from 'rxjs';
+import { Notification } from 'rxjs/internal/Notification';
+import { TestMessage } from 'rxjs/internal/testing/TestMessage';
 
 function notificationToMarble(notification: Notification<any>): string {
   if (notification.kind === 'N') return notification.value || 'x';

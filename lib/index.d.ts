@@ -1,14 +1,4 @@
-import { Observable } from 'rxjs/Observable';
-import { Scheduler } from 'rxjs/Scheduler';
-import 'rxjs/add/observable/empty';
-import 'rxjs/add/observable/fromEvent';
-import 'rxjs/add/observable/interval';
-import 'rxjs/add/observable/timer';
-import 'rxjs/add/operator/do';
-import 'rxjs/add/operator/retryWhen';
-import 'rxjs/add/operator/scan';
-import 'rxjs/add/operator/startWith';
-import 'rxjs/add/operator/switchMap';
+import { Observable, Scheduler } from 'rxjs';
 export interface IOptions {
     /**
      * Period of the interval to run the source$
